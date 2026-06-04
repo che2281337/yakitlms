@@ -78,10 +78,3 @@ go run .
 http://localhost:8080/
 http://localhost:8080/lms
 ```
-
-## Frontend
-
-Файл `frontend/college-site.html` взят из финальной версии сайта колледжа. Изменения минимальные:
-
-- исправлены цвета input и placeholder в светлой теме;
-- кнопка LMS в футере заменена на кнопку «Наверх».
