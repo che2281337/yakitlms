@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YAKIT | сайт колледжа</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+    body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
+    * { scrollbar-width: none; }
+    *::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+    .scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .fade-enter-active, .fade-leave-active { transition: all .25s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(8px); }
+  </style>
+</head>
+<body class="antialiased">
+  <div id="app">
+    <div :class="['min-h-screen transition-colors duration-300', darkMode ? 'bg-zinc-950 text-zinc-100 dark-mode' : 'bg-slate-50 text-zinc-900 light-mode']">
+      <header :class="['sticky top-0 z-40 border-b px-3 py-3 sm:px-6 sm:py-4', darkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200']">
+        <div class="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div class="flex min-w-0 cursor-pointer items-center gap-2.5 sm:gap-3" @click="setPage('home')">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/30 sm:h-11 sm:w-11">
+              <i class="fas fa-university"></i>
+            </div>
+            <div class="min-w-0 leading-none">
+              <div class="truncate text-lg font-black uppercase tracking-tighter sm:text-xl">YAKIT</div>
+              <div class="truncate text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:text-[10px] sm:tracking-[0.2em]">college portal</div>
+            </div>
+          </div>
+
+          <nav class="hidden items-center gap-6 lg:flex">
+            <button v-for="link in siteNav" :key="link.id" @click="setPage(link.id)"
+              :class="['text-sm font-bold transition-colors', page === link.id ? 'text-orange-500' : 'hover:text-orange-500']">
+              {{ link.label }}
+            </button>
+          </nav>
+
+          <div class="flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <button @click="darkMode = !darkMode" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-orange-500/40 text-orange-500 transition-all hover:bg-orange-500 hover:text-white sm:h-11 sm:w-11">
+              <i :class="darkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
+            </button>
+            <a v-if="!authUser" href="/lms" class="rounded-2xl bg-orange-500 px-3.5 py-3 text-center text-xs font-black text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 sm:px-5 sm:text-sm">
+              Вход
+            </a>
+            <a v-else href="/lms" class="max-w-[78px] truncate rounded-2xl bg-orange-500 px-3 py-3 text-center text-xs font-black text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 sm:max-w-[180px] sm:px-5 sm:text-sm">
+              {{ authUser.fullName || 'Кабинет' }}
+            </a>
+            <button v-if="authUser" @click="logout" class="flex h-10 shrink-0 items-center justify-center rounded-2xl bg-red-500/10 px-3 text-xs font-black text-red-400 transition-all hover:bg-red-500 hover:text-white sm:h-11 sm:px-4 sm:text-sm">
+              <i class="fas fa-right-from-bracket sm:hidden"></i><span class="hidden sm:inline">Выйти</span>
+            </button>
+            <button @click="mobileMenuOpen = true" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-zinc-700 text-zinc-300 transition-all hover:border-orange-500 hover:text-orange-500 lg:hidden sm:h-11 sm:w-11">
+              <i class="fas fa-bars"></i>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="mobileMenuOpen" :class="['fixed inset-0 z-50 lg:hidden', darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-zinc-900']">
+          <div class="flex h-full flex-col px-4 py-4">
+            <div :class="['mb-6 flex items-center justify-between border-b pb-4', darkMode ? 'border-zinc-800' : 'border-zinc-200']">
+              <div class="flex items-center gap-3">
+                <div class="grid h-11 w-11 place-items-center rounded-2xl bg-orange-500 text-white"><i class="fas fa-university"></i></div>
+                <div>
+                  <div class="font-black uppercase tracking-tighter">Меню</div>
+                  <div class="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">разделы сайта</div>
+                </div>
+              </div>
+              <button @click="mobileMenuOpen = false" :class="['grid h-11 w-11 place-items-center rounded-2xl transition-colors', darkMode ? 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200']">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <nav class="space-y-2">
+              <button v-for="link in siteNav" :key="'drawer-'+link.id" @click="setPage(link.id)"
+                :class="['flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-base font-black transition-colors', page === link.id ? 'bg-orange-500 text-white' : (darkMode ? 'bg-zinc-900 text-zinc-100 hover:bg-zinc-800' : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200')]">
+                <span>{{ link.label }}</span>
+                <i class="fas fa-chevron-right text-xs opacity-60"></i>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <main class="max-w-7xl mx-auto w-full px-4 py-6 sm:px-6 sm:py-8">
+        <div v-if="apiError" class="mb-6 p-4 rounded-2xl bg-red-500/10 text-red-500 text-sm font-bold border border-red-500/20">
+          {{ apiError }}
+        </div>
+
+        <transition name="fade" mode="out-in">
+          <section :key="page">
+            <div v-if="page === 'home'" class="space-y-16">
+              <section class="relative min-h-[420px] overflow-hidden rounded-[28px] flex items-center p-5 sm:p-8 md:min-h-[500px] md:rounded-[40px] md:p-12 bg-zinc-900">
+                <div class="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent z-10"></div>
+                <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=1600" class="absolute inset-0 w-full h-full object-cover opacity-60" alt="Campus" />
+                <div class="relative z-20 max-w-2xl space-y-7">
+                  <span class="inline-flex bg-orange-500/20 border border-orange-500/30 text-orange-400 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest">Якутский колледж инновационных технологий</span>
+                  <h1 class="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight">Твой путь в <span class="text-orange-500">IT</span> начинается здесь</h1>
+                  <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
+                    <button @click="setPage('apply')" class="bg-orange-500 text-white px-6 py-3.5 rounded-2xl font-black hover:scale-105 transition-transform sm:px-8 sm:py-4">Подать заявление</button>
+                    <button @click="setPage('about')" class="bg-white/10 text-white border border-white/20 backdrop-blur-md px-6 py-3.5 rounded-2xl font-black hover:bg-white/20 transition-all sm:px-8 sm:py-4">О колледже</button>
+                  </div>
+                </div>
+              </section>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 p-8 rounded-[32px] bg-orange-500 text-white flex flex-col justify-between min-h-64">
+                  <h3 class="text-2xl font-black sm:text-3xl">Практическое IT-образование</h3>
+                  <div class="grid grid-cols-2 gap-6 mt-10">
+                    <div v-for="s in stats" :key="s.label">
+                      <div class="text-4xl font-black">{{ s.value }}</div>
+                      <div class="text-xs uppercase font-bold opacity-80">{{ s.label }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div :class="['p-8 rounded-[32px] border flex flex-col justify-between min-h-64', darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200 shadow-sm']">
+                  <i class="fas fa-certificate text-orange-500 text-4xl"></i>
+                  <div>
+                    <h4 class="font-black text-xl">Гос. аккредитация</h4>
+                    <p class="text-sm text-zinc-500 mt-2">Образовательная среда для студентов специальности 09.02.07.</p>
+                  </div>
+                </div>
+              </div>
+
+              <section class="space-y-8">
+                <div class="flex justify-between items-end gap-4">
+                  <div>
+                    <h2 class="text-3xl font-black tracking-tighter sm:text-4xl">Новости колледжа</h2>
+                  </div>
+                  <button @click="setPage('news')" class="text-orange-500 font-black border-b-2 border-orange-500">Все новости</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <article v-for="item in news.slice(0, 3)" :key="item.id" @click="openNews(item)" class="group cursor-pointer">
+                    <div class="aspect-video rounded-3xl overflow-hidden mb-4 bg-zinc-800">
+                      <img :src="item.imageUrl" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    </div>
+                    <span class="text-xs font-black text-orange-500 uppercase">{{ formatDate(item.publishedAt) }}</span>
+                    <h3 class="text-xl font-black mt-1 group-hover:text-orange-500 transition-colors">{{ item.title }}</h3>
+                    <p class="text-sm text-zinc-500 mt-2 line-clamp-2">{{ item.excerpt }}</p>
+                  </article>
+                </div>
+              </section>
+            </div>
+
+            <div v-else-if="page === 'news'" class="space-y-10">
+              <h2 class="text-4xl font-black sm:text-5xl">Новости и события</h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <article v-for="item in news" :key="item.id" :class="['p-4 rounded-[32px] border group flex flex-col md:flex-row gap-6', darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200']">
+                  <img :src="item.imageUrl" class="w-full md:w-48 h-48 object-cover rounded-2xl" />
+                  <div class="flex flex-col justify-center gap-2">
+                    <span class="text-xs text-zinc-500 font-bold">{{ formatDate(item.publishedAt) }}</span>
+                    <h3 class="text-2xl font-black group-hover:text-orange-500 cursor-pointer" @click="openNews(item)">{{ item.title }}</h3>
+                    <p class="text-zinc-500 text-sm">{{ item.excerpt }}</p>
+                    <button @click="openNews(item)" class="text-orange-500 font-black text-sm mt-2 flex items-center gap-2">Подробнее <i class="fas fa-arrow-right"></i></button>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <div v-else-if="page === 'news_detail'" class="max-w-3xl mx-auto space-y-8">
+              <button @click="setPage('news')" class="flex items-center gap-2 text-zinc-500 hover:text-orange-500 font-bold"><i class="fas fa-chevron-left"></i> Назад к новостям</button>
+              <img :src="activeNews.imageUrl" class="w-full h-64 object-cover rounded-[28px] shadow-2xl sm:h-96 sm:rounded-[40px]" />
+              <div class="space-y-4">
+                <div class="flex items-center gap-4 text-sm font-bold text-orange-500">
+                  <span class="bg-orange-500/10 px-3 py-1 rounded-full">Новость</span>
+                  <span>{{ formatDate(activeNews.publishedAt) }}</span>
+                </div>
+                <h1 class="text-3xl font-black leading-tight sm:text-5xl">{{ activeNews.title }}</h1>
+                <p class="text-zinc-500 leading-relaxed text-lg whitespace-pre-line">{{ activeNews.content }}</p>
+              </div>
+            </div>
+
+            <div v-else-if="page === 'apply'" class="max-w-2xl mx-auto space-y-10 py-10">
+              <div class="text-center space-y-4">
+                <h2 class="text-4xl font-black sm:text-5xl">Подать заявление</h2>
+              </div>
+              <form @submit.prevent="submitApplication" :class="['p-5 sm:p-8 md:p-10 rounded-[28px] sm:rounded-[40px] border space-y-6', darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200 shadow-xl']">
+                <div v-if="applicationSuccess" class="p-4 rounded-2xl bg-emerald-500/10 text-emerald-500 text-sm font-bold">Заявка отправлена.</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <label class="space-y-2"><span class="text-xs font-black uppercase text-zinc-500">Имя</span><input v-model="application.firstName" required class="input" placeholder="Иван" /></label>
+                  <label class="space-y-2"><span class="text-xs font-black uppercase text-zinc-500">Фамилия</span><input v-model="application.lastName" required class="input" placeholder="Иванов" /></label>
+                </div>
+                <label class="space-y-2 block"><span class="text-xs font-black uppercase text-zinc-500">Направление</span>
+                  <select v-model="application.direction" class="input">
+                    <option>09.02.07 Информационные системы и программирование</option>
+                    <option>09.02.11 Разработка и управление программным обеспечением</option>
+                    <option>10.02.05 Обеспечение информационной безопасности автоматизированных систем</option>
+                  </select>
+                </label>
+                <label class="space-y-2 block"><span class="text-xs font-black uppercase text-zinc-500">Телефон</span><input v-model="application.phone" required class="input" placeholder="+7 (999) 000-00-00" /></label>
+                <button class="w-full bg-orange-500 text-white py-5 rounded-3xl font-black text-xl hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20">Отправить заявку</button>
+              </form>
+            </div>
+
+            <div v-else-if="page === 'teachers'" class="space-y-12">
+              <div class="space-y-2">
+                <h2 class="text-4xl font-black sm:text-5xl">Преподаватели</h2>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                <article v-for="teacher in teachers" :key="teacher.id" class="group">
+                  <div class="aspect-[3/4] rounded-[32px] overflow-hidden mb-4 bg-zinc-800 relative">
+                    
+                  </div>
+                  <h4 class="text-xl font-black">{{ teacher.name }}</h4>
+                  <p class="text-orange-500 text-xs font-bold uppercase tracking-widest">{{ teacher.position }}</p>
+                  <p class="text-zinc-500 text-sm mt-2">{{ teacher.email }}</p>
+                </article>
+              </div>
+            </div>
+
+            <div v-else-if="page === 'about'" class="max-w-4xl space-y-8">
+              <h2 class="text-4xl font-black sm:text-5xl">О колледже</h2>
+              <div :class="['p-5 sm:p-8 rounded-[28px] sm:rounded-[40px] border space-y-5 text-base sm:text-lg leading-relaxed', darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-600']">
+                <p>
+                  Якутский колледж инновационных технологий входит в Восточно-Сибирский образовательный центр, который работает в образовательном пространстве республики уже 25 лет. Наша задача – подготовка интеллектуально, духовно и нравственно развитых специалистов для республики и страны. Мы делаем всё, чтобы для наших выпускников диплом ЯКИТ стал надёжным билетом в их профессиональную жизнь.<br><br>
+                  Колледж ведет образовательную деятельность по программам среднего профессионального образования на основании лицензии, выданной Министерством образования и науки Республики Саха (Якутия).<br><br>
+                  Регистрационный номер лицензии: № Л035-01204-14/00250210от 10.06.20, регистрационный номер государственной аккредитации: № А007-01204-14/01166828, выданные Министерством образования и науки Республики Саха (Якутия).<br><br>
+                  Колледж имеет право на ведение образовательной деятельности по программам среднего профессионального образования по специальностям и профессиям:<br>
+                  09.02.11 Разработка и управление программным обеспечением (квалификация: программист)<br>
+                  10.02.05 Обеспечение информационной безопасности автоматизированных систем (квалификация: техник по защите информации)<br>
+                  40.02.04 Юриспруденция (квалификация: юрист)<br>
+                  40.02.02 Правоохранительная деятельность (квалификация: юрист)<br>
+                  09.01.05 Оператор технической поддержки (квалификация: оператор технической поддержки)<br>
+                  38.02.03 Операционная деятельность в логистике (квалификация: операционный логист)<br>
+                  43.02.16 Туризм и гостеприимство (квалификация: специалист по туризму и гостеприимству)<br><br>
+                  В колледже сложился педагогический коллектив, обладающий достаточным потенциалом и способностью решать современные задачи по подготовке квалифицированных специалистов.<br><br>
+                  В настоящее время образовательный процесс осуществляют 53 педагога. 75% педагогических работников колледжа имеют квалификационные категории (высшая квалификационная категория, первая квалификационная категория). 13 сотрудников ППС имеют ученую степень и ученое звание. Профессорско-преподавательский состав имеет большое количество наград и как федерального уровня, так и регионального, среди них: 1 преподаватель имеет звание «Почетный работник общего образования Российской Федерации», 6 преподавателей имеют звания «Отличник системы образования Республики Саха (Якутия)», 4 преподавателям вручен нагрудный знак «За вклад в развитие профессионального образования», 9 преподавателей отмечены почетной грамотой Министерства образования и науки Республики Саха (Якутия), 7 преподавателей отмечены  благодарностью Министерства образования и науки Республики Саха (Якутия), 12 преподавателей отмечены благодарностью заместителя председателя Государственного собрания (Ил Тумэн) Республики Саха (Якутия), 6 преподавателей отмечены почетной грамотой Государственного собрания (Ил Тумэн) Республики Саха (Якутия).<br><br>
+                  Со второго курса обучения студенты проходят производственную практику по профилю специальности. В перечень баз практики входят более 50 организаций и предприятий города Якутска, среди которых: МУ МВД России «Якутское», УР МУ МВД России «Якутское», Управление организации охраны общ порядка МВД по РС(Я), СУ СК России по РС(Я), ЯРО Общероссийского народного фронта, МКУ «Управа Губинского округа», Социальный фонд России, ГКУ РС(Я) «Центр занятости населения», МКУ «Департамент жилищных отношений», ГАУ МФЦ РС (Я) «Мои документы», Министерство труда и социального развития РС(Я), ГБУ РС (Я) «Республиканский центр содействия семейному воспитанию», ГБУ РС (Я) «Республиканский центр инфокоммуникационных технологий», ООО медицинская клиника «Аврора», Северо-Восточное ЛУМВД России на транспорте,  ООО «ИТ ПОЛЬЗА», ООО «8 bit», ЦЗИ «Север», ООО «Аватек», ООО «ВИ-интеграция», филиал ФКУ «Налог-Сервис» ФНС России РС (Я), ООО «АЭБ АЙТИ», ООО «Пауэр», ГАУ «Технопарк Якутия», УФСИН России по РС(Я), Управление занятости населения городских округов «Моя работа», УФССП России по РС (Я), Управление Министерства юстиции РФ по РС (Я), Министерство инновации РС (Я), Федеральная служба войск национальной гвардии РФ, ООО «Информационные технологии Якутии», АО «Сахатранснефтегаз», Департамент опеки и попечительства окружной администрации г. Якутска, Якутский район водных путей и судоходства – филиал ФБУ «Администрация Ленского бассейна внутренних водных путей», ПАО МТС, Якутская природоохранная прокуратура, ООО «КинТех», ООО «ИН-14», ГБУ РС (Я) «ЯРМИАЦ», ООО МИП «Автономные технологии», ФГКУ Якутский отдел вневедомственной охраны, Федеральная служба по надзору в сфере образования и науки и другие.<br><br>
+                  Выпускники НПОУ «ЯКИТ» имеют высокие шансы устроиться на работу по выбранной специальности. Для оказания содействия трудоустройству выпускников колледж дважды в год организовывает профориентационную ярмарку «Путевка в профессию»,  куда приглашаются потенциальные работодатели. Также выпускники посещают ярмарки трудоустройства, организованные на региональном и всероссийском уровне.<br><br>
+                  Проводимые ярмарки способствуют поиску подходящей работы, позволяют пообщаться с представителями компаний, спланировать карьеру или обучение, узнать о мерах государственной поддержки при трудоустройстве, а так же пройти мастер-классы и тренинги.<br>
+                  Воспитательная среда Колледжа ориентирована на формирование гражданско-патриотического сознания и нравственности. Студенты Колледжа принимают активное участие в научных конференциях и дискуссионных площадках, участвуют в олимпиадах и конкурсах по профессиональному мастерству, ведут активный образ жизни. У Колледжа есть свой медиацентр и телестудия.<br><br>
+                  В рамках развития научно-исследовательской и просветительской деятельности Якутского колледжа инновационных технологий – активное участие в чемпионате профессионального мастерства «Профессионалы», региональном чемпионате по профессиональному мастерству среди инвалидов и лиц с ограниченными возможностями здоровья «Абилимпикс», в мероприятиях, организованных Якутским региональным отделением Общероссийского народного фронта в Якутии.<br><br>
+                  Колледж также является организатором Республиканской олимпиады профессионального мастерства обучающихся по укрупненным группам специальностей 10.00.00 Информационная безопасность и 40.00.00 Юриспруденция.<br>
+                  ЯКИТ сотрудничает с НОУ ВО «Восточно-Сибирский институт экономики и менеджмента» (НОУ ВО «ВСИЭМ»). Обучение студентов колледжа проходит по программам дополнительного профессионального образования НОУ ВО «ВСИЭМ».<br><br>
+                  Колледж с 2020 года входит в состав Координационного совета по переподготовке и повышению квалификации кадров в области защиты информации в Дальневосточном федеральном округе при Управлении Федеральной службы по техническому и экспортному контролю.<br>
+                  Ежегодно ЯКИТ принимает участие в собраниях Координационного совета по утверждению плана работы, а также принимает участие в совершенствовании системы подготовки специалистов в области информационной безопасности в Дальневосточном федеральном округе.<br><br>
+                  Колледж также является участником ІТ-кластера Республики Саха (Якутия). Вхождение в кластер позволяет готовить специалистов в тесной связке с ведущими ІТ -компаниями региона. Благодаря этому студенты осваивают технологии, востребованные цифровой экономикой Якутии.<br><br>
+                  Ежегодно Колледжу выделяются места для обучения по образовательным программам среднего профессионального образования за счет бюджетных ассигнований бюджета Республики Саха (Якутия). Порядок приема и перехода в группы на бюджетной основе указан в соответствующих нормативно-правовых актах Колледжа.<br><br>
+                  Еще одним преимуществом обучения в ЯКИТе является предоставление поощрительных скидок и социальных льгот по результатам успеваемости, участия в научной и внеаудиторной деятельности.<br><br>
+                  Материально-техническая база колледжа соответствует всем необходимым требованиям: отдельное здание учебного корпуса площадью более 3000 м2, спортивный комплекс, земельный участок 5000 м2, собственная газовая котельная и хозяйственный блок. Колледж удобно расположен в 5 минутах езды от центра города.<br><br>
+                  Приемная комиссия ЯКИТ работает по адресу: г. Якутск, 203-й микрорайон, ул. Ларионова, 4., тел. 36-91-91
+                </p>
+              </div>
+            </div>
+          </section>
+        </transition>
+      </main>
+
+      <footer :class="['py-10 px-4 sm:py-14 sm:px-6 border-t mt-14 sm:mt-20', darkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200']">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
+          <div class="space-y-4 md:col-span-2">
+            <div class="flex items-center gap-2 text-orange-500"><i class="fas fa-university text-3xl"></i><span class="font-black text-2xl tracking-tighter uppercase">YAKIT</span></div>
+            <p class="text-zinc-500 text-sm max-w-xl">2011-2026 © НПОУ "ЯКИТ"</p>
+            <p class="text-zinc-500 text-sm max-w-xl">Титович Александр @zstarclique</p>
+          </div>
+          <div><h4 class="font-black mb-4">Разделы</h4><button @click="setPage('news')" class="block text-zinc-500 hover:text-orange-500 mb-2">Новости</button><button @click="setPage('teachers')" class="block text-zinc-500 hover:text-orange-500 mb-2">Преподаватели</button><button @click="setPage('apply')" class="block text-zinc-500 hover:text-orange-500">Поступление</button></div>
+          <div><h4 class="font-black mb-4">Навигация</h4><button @click="scrollTop" class="inline-flex bg-orange-500 text-white px-5 py-3 rounded-2xl font-black">Наверх</button></div>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+    const API_BASE = `${location.origin}/api`;
+
+    createApp({
+      setup() {
+        const darkMode = ref(true);
+        const page = ref('home');
+        const mobileMenuOpen = ref(false);
+        const apiError = ref('');
+        const applicationSuccess = ref(false);
+        const authUser = ref(JSON.parse(localStorage.getItem('user') || 'null'));
+        const activeNews = ref({});
+        const news = ref([]);
+        const teachers = ref([]);
+        const siteNav = [
+          { id: 'home', label: 'Главная' },
+          { id: 'news', label: 'Новости' },
+          { id: 'teachers', label: 'Преподаватели' },
+          { id: 'apply', label: 'Поступление' },
+          { id: 'about', label: 'О колледже' }
+        ];
+        const stats = [
+          { value: '09.02.07', label: 'специальность' },
+        ];
+        const application = ref({
+          firstName: '',
+          lastName: '',
+          phone: '',
+          direction: '09.02.07 Информационные системы и программирование'
+        });
+
+        const request = async (path, options = {}) => {
+          apiError.value = '';
+          try {
+            const response = await fetch(`${API_BASE}${path}`, {
+              headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+              ...options
+            });
+            if (!response.ok) throw new Error(await response.text());
+            return await response.json();
+          } catch (error) {
+            apiError.value = 'Ошибка обращения к API';
+            throw error;
+          }
+        };
+
+        const loadData = async () => {
+          try {
+            news.value = await request('/public/news');
+            teachers.value = await request('/public/teachers');
+            activeNews.value = news.value[0] || {};
+          } catch (_) {
+            news.value = [];
+            teachers.value = [];
+          }
+        };
+
+        const setPage = (value) => {
+          page.value = value;
+          mobileMenuOpen.value = false;
+          scrollTo({ top: 0, behavior: 'smooth' });
+        };
+        const openNews = (item) => {
+          activeNews.value = item;
+          setPage('news_detail');
+        };
+        const submitApplication = async () => {
+          applicationSuccess.value = false;
+          await request('/public/applications', { method: 'POST', body: JSON.stringify(application.value) });
+          applicationSuccess.value = true;
+          application.value = { firstName: '', lastName: '', phone: '', direction: application.value.direction };
+        };
+        const formatDate = (value) => value ? new Date(value).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+        const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); authUser.value = null; };
+        const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        onMounted(loadData);
+        return { darkMode, page, mobileMenuOpen, siteNav, stats, news, teachers, activeNews, apiError, application, applicationSuccess, authUser, logout, scrollTop, setPage, openNews, submitApplication, formatDate };
+      }
+    }).mount('#app');
+  </script>
+
+  <style>
+    html, body, #app { min-height: 100%; max-width: 100%; overflow-x: hidden; }
+    * { box-sizing: border-box; }
+    img, video { max-width: 100%; height: auto; }
+    .input { width: 100%; min-width: 0; padding: 1rem; border-radius: 1rem; border: 1px solid rgb(63,63,70); outline: none; transition: .2s; font-size: 16px; }
+    .dark-mode .input { background: rgba(39,39,42,.55); color: rgb(244,244,245); }
+    .dark-mode .input::placeholder { color: rgb(161,161,170); opacity: 1; }
+    .light-mode .input { background: rgb(255,255,255); color: rgb(24,24,27); border-color: rgb(212,212,216); }
+    .light-mode .input::placeholder { color: rgb(113,113,122); opacity: 1; }
+    .input:focus { border-color: rgb(249,115,22); box-shadow: 0 0 0 3px rgba(249,115,22,.12); }
+    button, a, input, select, textarea { touch-action: manipulation; }
+    @media (max-width: 640px) {
+      .rounded-\[40px\] { border-radius: 1.75rem; }
+      .rounded-\[32px\] { border-radius: 1.5rem; }
+      h1, h2, h3 { overflow-wrap: anywhere; }
+      p { overflow-wrap: anywhere; }
+    }
+  </style>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YAKIT LMS</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+    body { font-family: Inter, sans-serif; }
+    .scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: #f97316; border-radius: 999px; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+<div id="app" class="min-h-screen">
+  <section v-if="!token" class="min-h-screen grid place-items-center px-4">
+    <div class="w-full max-w-md rounded-[32px] border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
+      <div class="mb-8 text-center">
+        <div class="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-3xl bg-orange-500 text-3xl"><i class="fas fa-graduation-cap"></i></div>
+        <h1 class="text-3xl font-black tracking-tight">YAKIT LMS</h1>
+        <p class="mt-2 text-sm text-zinc-500">Вход в учебную систему</p>
+      </div>
+      <div class="space-y-4">
+        <input v-model="loginForm.email" class="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 outline-none focus:border-orange-500" placeholder="email" />
+        <input v-model="loginForm.password" type="password" class="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 outline-none focus:border-orange-500" placeholder="пароль" />
+        <button @click="login" class="w-full rounded-2xl bg-orange-500 py-4 font-black text-white hover:bg-orange-600">ВОЙТИ</button>
+        <p class="text-center text-xs text-zinc-500">student@yakit.ru / teacher@yakit.ru / admin@yakit.ru — пароль 123456</p>
+        <p v-if="error" class="rounded-xl bg-red-500/10 p-3 text-sm text-red-400">{{ error }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section v-else class="flex h-screen overflow-hidden">
+    <aside class="hidden w-72 shrink-0 border-r border-zinc-900 bg-zinc-950 p-5 md:flex md:flex-col">
+      <div class="mb-8 flex items-center gap-3 text-orange-500">
+        <i class="fas fa-graduation-cap text-3xl"></i>
+        <div>
+          <div class="font-black tracking-tight">YAKIT LMS</div>
+          <div class="text-[10px] font-bold uppercase text-zinc-500">{{ user.role }}</div>
+        </div>
+      </div>
+      <nav class="flex-1 space-y-2 overflow-y-auto scrollbar">
+        <button v-for="n in nav" :key="n.id" @click="openPage(n.id)" :class="['flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition', page===n.id ? 'bg-orange-500 text-white' : 'hover:bg-zinc-900 text-zinc-400 hover:text-white']">
+          <i :class="n.icon" class="w-5 text-center"></i>{{ n.label }}
+        </button>
+      </nav>
+      <div class="mt-4 space-y-3 border-t border-zinc-900 pt-4">
+        <div class="rounded-2xl bg-zinc-900 p-4">
+          <div class="truncate text-sm font-black">{{ user.fullName }}</div>
+          <div class="truncate text-xs text-zinc-500">{{ user.email }}</div>
+        </div>
+        <a href="/" class="flex items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-black text-orange-400 hover:bg-orange-500 hover:text-white"><i class="fas fa-globe"></i>На главный сайт</a>
+        <button @click="logout" class="w-full rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-black text-red-400 hover:bg-red-500 hover:text-white">Выйти</button>
+      </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 scrollbar">
+      <header class="mb-8 flex flex-col gap-4 rounded-[28px] border border-zinc-900 bg-zinc-900/60 p-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 class="text-3xl font-black tracking-tight">{{ pageTitle }}</h1>
+          <p class="text-sm text-zinc-500">{{ user.fullName }} · {{ roleTitle(user.role) }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a href="/" class="rounded-2xl border border-orange-500 px-4 py-2 text-sm font-black text-orange-400 hover:bg-orange-500 hover:text-white"><i class="fas fa-globe mr-2"></i>Главный сайт</a>
+          <button @click="refresh" class="rounded-2xl bg-zinc-800 px-4 py-2 text-sm font-black hover:bg-zinc-700"><i class="fas fa-rotate mr-2"></i>Обновить</button>
+        </div>
+      </header>
+
+      <div v-if="error" class="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{{ error }}</div>
+      <div v-if="notice" class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">{{ notice }}</div>
+
+      <section v-if="page==='home'" class="space-y-6">
+        <div class="grid gap-5 md:grid-cols-3">
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6"><div class="text-xs font-black uppercase text-zinc-500">Курсы</div><div class="mt-2 text-4xl font-black text-orange-400">{{ courses.length }}</div></div>
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6"><div class="text-xs font-black uppercase text-zinc-500">Средний балл</div><div class="mt-2 text-4xl font-black text-orange-400">{{ dashboard?.averageGrade ? dashboard.averageGrade.toFixed(1) : '—' }}</div></div>
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6"><div class="text-xs font-black uppercase text-zinc-500">Ближайшие дела</div><div class="mt-2 text-4xl font-black text-orange-400">{{ dashboard?.currentTasks?.length || 0 }}</div></div>
+        </div>
+        <div class="grid gap-5 xl:grid-cols-2">
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5">
+            <div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-black">Сегодня по календарю</h2><button @click="openPage('schedule')" class="small-btn">Открыть календарь</button></div>
+            <div class="space-y-2"><button v-for="s in (dashboard?.todaySchedule || [])" :key="s.id" @click="openScheduleItem(s)" class="w-full rounded-2xl bg-zinc-950 p-4 text-left hover:bg-zinc-800"><b>{{ formatTime(s.startsAt) }}</b> · {{ s.title || s.courseTitle }}<div class="text-xs text-zinc-500">{{ s.room }} · {{ s.groupName }}</div></button><p v-if="!(dashboard?.todaySchedule||[]).length" class="text-sm text-zinc-500">На сегодня занятий нет.</p></div>
+          </div>
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5">
+            <div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-black">Последние оценки</h2><button @click="openPage('grades')" class="small-btn">Все оценки</button></div>
+            <div class="space-y-2"><div v-for="g in (dashboard?.recentGrades || [])" :key="g.id" class="rounded-2xl bg-zinc-950 p-4"><b class="text-orange-400">{{ g.value }}/{{ g.maxValue }}</b> · {{ g.courseTitle }}<div class="text-xs text-zinc-500">{{ g.workTitle || 'Оценка' }}</div></div><p v-if="!(dashboard?.recentGrades||[]).length" class="text-sm text-zinc-500">Оценок пока нет.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="page==='schedule'" class="space-y-5">
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5">
+          <h2 class="mb-4 text-xl font-black">Календарь занятий</h2>
+          <div class="grid gap-3"><button v-for="s in schedule" :key="s.id" @click="openScheduleItem(s)" class="flex flex-col gap-1 rounded-2xl bg-zinc-950 p-4 text-left hover:bg-zinc-800 md:flex-row md:items-center md:justify-between"><span><b class="text-orange-400">{{ formatDate(s.startsAt) }} {{ formatTime(s.startsAt) }}</b> · {{ s.title || s.courseTitle }}</span><span class="text-sm text-zinc-500">{{ s.room }} · {{ s.groupName }}</span></button></div>
+        </div>
+      </section>
+
+      <section v-if="page==='grades'" class="space-y-5">
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5">
+          <h2 class="mb-4 text-xl font-black">Журнал оценок</h2>
+          <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-xs uppercase text-zinc-500"><tr><th class="p-3">Оценка</th><th class="p-3">Курс</th><th class="p-3">Работа</th><th class="p-3">Студент</th><th class="p-3">Комментарий</th></tr></thead><tbody><tr v-for="g in grades" :key="g.id" class="border-t border-zinc-800"><td class="p-3 font-black text-orange-400">{{ g.value }}/{{ g.maxValue }}</td><td class="p-3">{{ g.courseTitle }}</td><td class="p-3">{{ g.workTitle || '—' }}</td><td class="p-3">{{ g.studentName || '—' }}</td><td class="p-3 text-zinc-500">{{ g.comment || '' }}</td></tr></tbody></table></div>
+        </div>
+      </section>
+
+      <section v-if="page==='courses'" class="space-y-6">
+        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <article v-for="c in courses" :key="c.id" @click="openCourse(c.id)" class="group cursor-pointer overflow-hidden rounded-[28px] border border-zinc-800 bg-zinc-900 hover:border-orange-500">
+            <div class="h-40 bg-zinc-800"><img v-if="c.imageUrl" :src="c.imageUrl" class="h-full w-full object-cover opacity-80 group-hover:opacity-100" /></div>
+            <div class="p-5">
+              <div class="mb-2 flex items-center justify-between text-[10px] font-black uppercase text-orange-500"><span>{{ c.category || 'Курс' }}</span><span>{{ c.progress || 0 }}%</span></div>
+              <h3 class="text-xl font-black">{{ c.title }}</h3>
+              <p class="mt-2 line-clamp-2 text-sm text-zinc-500">{{ c.description }}</p>
+              <p class="mt-4 text-xs font-bold text-zinc-400">Преподаватель: {{ c.teacherName }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="page==='course' && activeCourse" class="space-y-6">
+        <button @click="openPage('courses')" class="text-sm font-bold text-zinc-400 hover:text-orange-400"><i class="fas fa-chevron-left mr-2"></i>К списку курсов</button>
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="text-xs font-black uppercase text-orange-500">{{ activeCourse.category }}</div>
+              <h2 class="mt-2 text-3xl font-black">{{ activeCourse.title }}</h2>
+              <p class="mt-3 max-w-3xl text-zinc-400">{{ activeCourse.description }}</p>
+              <p class="mt-2 text-sm text-zinc-500">Преподаватель: {{ activeCourse.teacherName }}</p>
+            </div>
+            <div v-if="canManageActiveCourse" class="flex flex-wrap gap-2">
+              <button @click="showModuleForm=!showModuleForm" class="rounded-2xl bg-orange-500 px-4 py-3 text-sm font-black text-white">+ Программа</button>
+              <button @click="loadEnrollments" class="rounded-2xl bg-zinc-800 px-4 py-3 text-sm font-black">Студенты курса</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="showModuleForm" class="rounded-[28px] border border-zinc-800 bg-zinc-900 p-5">
+          <h3 class="mb-4 text-lg font-black">Новая программа курса</h3>
+          <div class="grid gap-3 md:grid-cols-3">
+            <input v-model="moduleForm.title" class="input" placeholder="Название программы" />
+            <input v-model="moduleForm.description" class="input md:col-span-2" placeholder="Описание" />
+          </div>
+          <button @click="createModule" class="mt-3 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black">Сохранить</button>
+        </div>
+
+        <div v-if="enrollmentPanel" class="rounded-[28px] border border-zinc-800 bg-zinc-900 p-5">
+          <div class="mb-4 flex items-center justify-between"><h3 class="text-lg font-black">Студенты курса</h3><button @click="enrollmentPanel=false" class="text-zinc-500 hover:text-white"><i class="fas fa-times"></i></button></div>
+          <div v-if="user.role==='admin'" class="mb-4 flex gap-2">
+            <select v-model.number="enrollUserId" class="input flex-1"><option :value="0">Выбрать студента</option><option v-for="s in students" :value="s.id">{{ s.fullName }} — {{ s.groupName }}</option></select>
+            <button @click="addEnrollment" class="rounded-2xl bg-orange-500 px-4 font-black">Прикрепить</button>
+          </div>
+          <div class="space-y-2">
+            <div v-for="e in enrollments" :key="e.id" class="flex items-center justify-between rounded-2xl bg-zinc-950 p-3 text-sm"><span>{{ e.user?.fullName || e.userId }}</span><button v-if="user.role==='admin'" @click="removeEnrollment(e.userId)" class="delete-btn"><i class="fas fa-trash"></i></button></div>
+          </div>
+        </div>
+
+        <div v-for="m in activeCourse.modules" :key="m.id" class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5">
+          <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div><h3 class="text-2xl font-black">{{ m.title }}</h3><p class="text-sm text-zinc-500">{{ m.description }}</p></div>
+            <div v-if="canManageActiveCourse" class="flex flex-wrap gap-2">
+              <button @click="openItemForm(m)" class="small-btn">+ Задание/материал</button>
+              <button @click="openTestForm(m)" class="small-btn">+ Тест</button>
+              <button @click="deleteModule(m.id)" class="delete-btn"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+
+          <div v-if="itemForm.moduleId===m.id" class="mb-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-4">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h4 class="font-black">Задание / учебный материал</h4>
+              <button @click="closeItemForm" class="delete-btn" title="Закрыть"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2">
+              <input v-model="itemForm.title" class="input" placeholder="Название" />
+              <input v-model="itemForm.deadline" type="date" class="input" />
+              <textarea v-model="itemForm.content" class="input md:col-span-2" rows="3" placeholder="Текст / описание"></textarea>
+              <input v-model="itemForm.url" class="input" placeholder="Ссылка или URL файла" />
+              <input ref="itemFile" type="file" class="input" />
+              <input v-model.number="itemForm.maxScore" type="number" min="1" class="input" placeholder="Макс. балл" />
+            </div>
+            <button @click="saveItem" class="mt-3 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black">Сохранить элемент</button>
+          </div>
+
+          <div v-if="testForm.moduleId===m.id" class="mb-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-4">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h4 class="font-black">Создать тест</h4>
+              <button @click="closeTestForm" class="delete-btn" title="Закрыть"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="grid gap-3 md:grid-cols-3">
+              <input v-model="testForm.title" class="input" placeholder="Название теста" />
+              <input v-model="testForm.deadline" type="date" class="input" />
+              <input v-model.number="testForm.maxScore" type="number" class="input" placeholder="Макс. балл" />
+              <input v-model.number="testForm.attemptLimit" type="number" min="1" class="input" placeholder="Попыток" />
+              <input v-model.number="testForm.durationMinutes" type="number" min="0" class="input" placeholder="Таймер, мин" />
+              <label class="input flex items-center gap-2"><input v-model="testForm.showResult" type="checkbox" />Показывать итог после лимита</label>
+              <textarea v-model="testForm.description" class="input md:col-span-3" rows="2" placeholder="Описание"></textarea>
+            </div>
+            <button @click="createTest" class="mt-3 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black">Создать и открыть редактор</button>
+          </div>
+
+          <div class="space-y-3">
+            <div v-for="item in sortedItems(m)" :key="item.itemType+'-'+item.id" class="rounded-3xl border border-zinc-800 bg-zinc-950 p-4">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div class="min-w-0">
+                  <div class="mb-1 text-[10px] font-black uppercase" :class="item.itemType==='test'?'text-purple-400':'text-orange-400'">{{ itemLabel(item.itemType) }}</div>
+                  <h4 class="text-lg font-black">{{ item.title }}</h4>
+                  <p class="mt-1 text-sm text-zinc-500">{{ item.description || item.content }}</p>
+                  <a v-if="item.url || item.instructionUrl" :href="item.url || item.instructionUrl" target="_blank" class="mt-2 inline-block text-sm font-bold text-orange-400"><i class="fas fa-paperclip mr-2"></i>Открыть файл/ссылку</a>
+                  <div v-if="item.itemType==='assignment'" class="mt-2 text-xs text-zinc-500">Срок: {{ dateOnly(item.deadline) }} · Балл: {{ item.maxScore }}</div>
+                  <div v-if="item.itemType==='test'" class="mt-2 text-xs text-zinc-500">Срок: {{ dateOnly(item.deadline) }} · Попыток: {{ item.attemptLimit || 1 }} · Таймер: {{ item.durationMinutes || 0 }} мин</div>
+                  <div v-if="item.itemType==='test' && user.role==='student' && item.score!==undefined" class="mt-2 inline-block rounded-xl bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-400">Итог: {{ item.score }} / {{ item.maxScore }}</div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button v-if="item.itemType==='assignment' && user.role==='student'" @click="openSubmission(item)" class="small-btn">{{ item.submissionId ? 'Изменить ответ' : 'Ответить' }}</button>
+                  <button v-if="item.itemType==='assignment' && canManageActiveCourse" @click="loadSubmissions(item)" class="small-btn">Проверить</button>
+                  <button v-if="item.itemType==='test' && user.role==='student'" @click="startTest(item.id)" class="small-btn">Пройти</button>
+                  <button v-if="item.itemType==='test' && canManageActiveCourse" @click="editTest(item.id)" class="small-btn">Вопросы</button>
+                  <button v-if="item.itemType==='test' && canManageActiveCourse" @click="loadTestAttempts(item)" class="small-btn">Проверить тесты</button>
+                  <button v-if="canManageActiveCourse" @click="deleteItem(item)" class="delete-btn"><i class="fas fa-trash"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="page==='submission' && selectedAssignment" class="max-w-3xl space-y-5">
+        <button @click="page='course'" class="text-sm font-bold text-zinc-400 hover:text-orange-400"><i class="fas fa-chevron-left mr-2"></i>Назад к курсу</button>
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="text-2xl font-black">{{ selectedAssignment.title }}</h2>
+          <p class="mt-2 text-zinc-400">{{ selectedAssignment.description }}</p>
+          <textarea v-model="submissionForm.answer" rows="6" class="input mt-5 w-full" placeholder="Текст ответа"></textarea>
+          <input ref="submissionFile" type="file" multiple class="input mt-3 w-full" />
+          <div v-if="selectedAssignment.files && selectedAssignment.files.length" class="mt-3 space-y-2 rounded-2xl bg-zinc-950 p-3">
+            <div class="text-xs font-black uppercase text-zinc-500">Прикрепленные файлы ответа</div>
+            <div v-for="f in selectedAssignment.files" :key="f.id" class="flex flex-wrap items-center gap-3">
+              <a :href="f.fileUrl" target="_blank" class="text-sm text-orange-400"><i class="fas fa-paperclip mr-2"></i>{{ f.fileName || 'Файл ответа' }}</a>
+              <button @click="deleteSubmissionFile(f)" class="delete-btn"><i class="fas fa-trash mr-2"></i>Удалить</button>
+            </div>
+          </div>
+          <button @click="saveSubmission" class="mt-4 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black">Отправить на проверку</button>
+        </div>
+      </section>
+
+      <section v-if="page==='check'" class="space-y-5">
+        <button @click="page='course'" class="text-sm font-bold text-zinc-400 hover:text-orange-400"><i class="fas fa-chevron-left mr-2"></i>Назад к курсу</button>
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="mb-4 text-2xl font-black">Проверка работ: {{ checkingAssignment?.title }}</h2>
+          <div class="space-y-3">
+            <div v-for="s in submissions" :key="s.id" class="rounded-3xl bg-zinc-950 p-4">
+              <div class="flex flex-col gap-3 md:flex-row md:justify-between">
+                <div><b>{{ s.student?.fullName }}</b><p class="mt-1 text-sm text-zinc-500">{{ s.answer }}</p><div v-if="s.files && s.files.length" class="mt-2 space-y-1"><a v-for="f in s.files" :key="f.id" :href="f.fileUrl" target="_blank" class="block text-sm text-orange-400"><i class="fas fa-paperclip mr-2"></i>{{ f.fileName || 'Файл ответа' }}</a></div></div>
+                <div class="flex gap-2"><input v-model.number="gradeForms[s.id].grade" type="number" class="input w-24" placeholder="Балл" /><input v-model="gradeForms[s.id].comment" class="input" placeholder="Комментарий" /><button @click="gradeSubmission(s)" class="small-btn">Оценить</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="page==='testEditor' && selectedTest" class="space-y-5">
+        <button @click="page='course'" class="text-sm font-bold text-zinc-400 hover:text-orange-400"><i class="fas fa-chevron-left mr-2"></i>Назад к курсу</button>
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="text-2xl font-black">Редактор теста: {{ selectedTest.title }}</h2>
+          <p class="mt-2 text-sm text-zinc-500">Типы вопросов: один ответ, несколько ответов, текстовый ответ. Для текстового вопроса можно указать эталонный ответ, а при проверке преподаватель может вручную засчитать или не засчитать любой вопрос.</p>
+          <div class="mt-4 grid gap-3 md:grid-cols-4">
+            <input v-model="selectedTest.title" class="input" placeholder="Название" />
+            <input v-model.number="selectedTest.attemptLimit" type="number" min="1" class="input" placeholder="Попыток" />
+            <input v-model.number="selectedTest.durationMinutes" type="number" min="0" class="input" placeholder="Таймер, мин" />
+            <label class="input flex items-center gap-2"><input v-model="selectedTest.showResult" type="checkbox" />Показывать итог</label>
+            <textarea v-model="selectedTest.description" class="input md:col-span-4" rows="2" placeholder="Описание теста"></textarea>
+          </div>
+          <button @click="saveTestSettings" class="mt-3 rounded-2xl bg-zinc-800 px-5 py-3 text-sm font-black hover:bg-orange-500">Сохранить настройки теста</button>
+          <div class="mt-5 rounded-3xl bg-zinc-950 p-4">
+            <div class="grid gap-3 md:grid-cols-4">
+              <select v-model="questionForm.type" class="input"><option value="radio">Один ответ</option><option value="checkbox">Несколько ответов</option><option value="text">Текстовый ответ</option></select>
+              <input v-model="questionForm.points" type="number" class="input" placeholder="Баллы" />
+              <input v-model="questionForm.imageUrl" class="input md:col-span-2" placeholder="URL картинки" />
+              <textarea v-model="questionForm.question" class="input md:col-span-4" placeholder="Текст вопроса"></textarea>
+              <textarea v-if="questionForm.type!=='text'" v-model="questionForm.optionsText" class="input md:col-span-2" placeholder="Варианты, каждый с новой строки"></textarea>
+              <textarea v-model="questionForm.correctText" class="input md:col-span-2" :placeholder="questionForm.type==='checkbox' ? 'Правильные ответы, каждый с новой строки' : questionForm.type==='text' ? 'Эталонный текстовый ответ для автоматической проверки' : 'Правильный ответ'"></textarea>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2"><button @click="saveQuestion" class="rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black">{{ questionForm.id ? 'Сохранить вопрос' : 'Добавить вопрос' }}</button><button v-if="questionForm.id" @click="resetQuestionForm" class="small-btn">Отмена редактирования</button></div>
+          </div>
+          <div class="mt-5 space-y-3">
+            <div v-for="q in (selectedTest.questions || [])" :key="q.id" class="rounded-3xl bg-zinc-950 p-4">
+              <div class="flex justify-between gap-3"><div><span class="text-[10px] font-black uppercase text-purple-400">{{ q.type }}</span><h4 class="font-black">{{ q.question }}</h4><img v-if="q.imageUrl" :src="q.imageUrl" class="mt-2 h-32 rounded-xl object-cover" /><p v-if="q.type!=='text'" class="text-sm text-zinc-500">Варианты: {{ (q.options||[]).join(', ') }}</p><p class="text-sm text-emerald-500">Правильно: {{ (q.correctAnswers||[]).join(', ') || 'не задано' }}</p></div><div class="flex gap-2"><button @click="editQuestion(q)" class="small-btn"><i class="fas fa-edit"></i></button><button @click="deleteQuestion(q.id)" class="delete-btn"><i class="fas fa-trash"></i></button></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="page==='takeTest' && selectedTest" class="max-w-3xl space-y-5">
+        <button @click="page='course'" class="text-sm font-bold text-zinc-400 hover:text-orange-400"><i class="fas fa-chevron-left mr-2"></i>Назад к курсу</button>
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="text-2xl font-black">{{ selectedTest.title }}</h2>
+          <div class="mt-2 flex flex-wrap gap-2 text-xs font-black text-zinc-400">
+            <span>Попытки: {{ selectedTest.attemptsUsed || 0 }} / {{ selectedTest.attemptLimit || 1 }}</span>
+            <span v-if="selectedTest.durationMinutes">Осталось: {{ timerText }}</span>
+          </div>
+          <div v-if="selectedTest.canAttempt===false" class="mt-5 rounded-3xl bg-zinc-950 p-5 text-sm text-zinc-400">
+            Лимит попыток исчерпан.
+            <span v-if="selectedTest.score!==undefined" class="ml-2 font-black text-emerald-400">Итоговый балл: {{ selectedTest.score }} / {{ selectedTest.maxScore }}</span>
+            <span v-else class="ml-2">Преподаватель запретил показ результата до проверки.</span>
+          </div>
+          <div v-else class="mt-5 space-y-4">
+            <div v-for="q in (selectedTest.questions || [])" :key="q.id" class="rounded-3xl bg-zinc-950 p-4">
+              <h4 class="font-black">{{ q.question }}</h4>
+              <img v-if="q.imageUrl" :src="q.imageUrl" class="mt-2 h-40 rounded-xl object-cover" />
+              <div v-if="q.type==='radio'" class="mt-3 space-y-2"><label v-for="o in q.options" class="block"><input type="radio" :name="'q'+q.id" :value="o" v-model="testAnswers[q.id]" class="mr-2" />{{ o }}</label></div>
+              <div v-else-if="q.type==='checkbox'" class="mt-3 space-y-2"><label v-for="o in q.options" class="block"><input type="checkbox" :value="o" v-model="testAnswers[q.id]" class="mr-2" />{{ o }}</label></div>
+              <input v-else v-model="testAnswers[q.id]" class="input mt-3 w-full" placeholder="Введите ответ" />
+            </div>
+          </div>
+          <button @click="submitTest" :disabled="testExpired || selectedTest.canAttempt===false" class="mt-5 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-black disabled:cursor-not-allowed disabled:bg-zinc-700">Завершить тест</button>
+        </div>
+      </section>
+
+      <section v-if="page==='testAttempts'" class="space-y-5">
+        <button @click="page='course'" class="text-sm font-bold text-zinc-400 hover:text-orange-400"><i class="fas fa-chevron-left mr-2"></i>Назад к курсу</button>
+        <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-6">
+          <h2 class="mb-4 text-2xl font-black">Проверка теста: {{ checkingTest?.title }}</h2>
+          <div v-if="!testAttempts.length" class="rounded-3xl bg-zinc-950 p-5 text-sm text-zinc-500">Попыток прохождения пока нет.</div>
+          <div class="space-y-3">
+            <div v-for="a in testAttempts" :key="a.id" class="rounded-3xl bg-zinc-950 p-4">
+              <div class="mb-4 flex flex-col gap-1">
+                <b>{{ a.student?.fullName }}</b>
+                <p class="text-sm text-zinc-500">Попытка №{{ a.attemptNumber || 1 }} · ручная проверка по вопросам</p>
+              </div>
+              <div class="space-y-2">
+                <div v-for="row in attemptQuestionRows(a)" :key="row.id" class="rounded-2xl bg-zinc-900 p-3">
+                  <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div class="text-xs font-black uppercase" :class="row.correct ? 'text-emerald-400' : row.partial ? 'text-yellow-400' : 'text-red-400'">{{ row.statusText }}</div>
+                      <div class="font-bold">{{ row.question }}</div>
+                      <div class="mt-1 text-sm text-zinc-400">Ответ студента: {{ row.studentText || 'нет ответа' }}</div>
+                      <div class="text-sm text-zinc-500">Правильно: {{ row.correctText || 'не задано' }}</div>
+                    </div>
+                    <div class="flex flex-col gap-2 rounded-xl bg-zinc-950 px-3 py-2 text-sm font-bold">
+                      <label class="flex items-center gap-2">
+                        <input type="checkbox" v-model="testAttemptForms[a.id].questionGrades[row.id]" /> Засчитать
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
+                <input v-model="testAttemptForms[a.id].comment" class="input" placeholder="Комментарий преподавателя" />
+                <button @click="gradeTestAttempt(a)" class="small-btn">Сохранить проверку</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="page==='admin' && user.role==='admin'" class="space-y-6">
+        <div class="grid gap-5 xl:grid-cols-2">
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5"><div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-black">Пользователи</h2><button @click="saveUser" class="small-btn">Создать/сохранить</button></div><div class="grid gap-3 md:grid-cols-2"><input v-model="userForm.fullName" class="input" placeholder="ФИО" /><input v-model="userForm.email" class="input" placeholder="Email" /><input v-model="userForm.password" class="input" placeholder="Пароль" /><select v-model="userForm.role" class="input"><option value="student">Студент</option><option value="teacher">Преподаватель</option><option value="admin">Админ</option></select><input v-model="userForm.groupName" class="input" placeholder="Группа" /><input v-model="userForm.specialty" class="input" placeholder="Специальность" /></div><div class="mt-4 max-h-80 space-y-2 overflow-y-auto scrollbar"><div v-for="u in users" :key="u.id" class="flex items-center justify-between rounded-2xl bg-zinc-950 p-3 text-sm"><span>{{ u.fullName }} · {{ u.role }}</span><div class="flex gap-2"><button @click="editUser(u)" class="small-btn">Изм.</button><button @click="deleteUser(u.id)" class="delete-btn"><i class="fas fa-trash"></i></button></div></div></div></div>
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5"><div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-black">Курсы и преподаватели</h2><button @click="saveCourse" class="small-btn">Создать курс</button></div><div class="grid gap-3"><input v-model="courseForm.title" class="input" placeholder="Название курса" /><input v-model="courseForm.category" class="input" placeholder="Категория" /><select v-model.number="courseForm.teacherId" class="input"><option :value="0">Преподаватель</option><option v-for="t in teachers" :value="t.id">{{ t.fullName }}</option></select><textarea v-model="courseForm.description" class="input" placeholder="Описание"></textarea></div><p class="mt-4 text-sm text-zinc-500">Прикрепление студентов делается внутри страницы выбранного курса через кнопку «Студенты курса».</p></div>
+        </div>
+        <div class="grid gap-5 xl:grid-cols-2">
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5"><div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-black">Новости сайта</h2><button @click="saveNews" class="small-btn">Опубликовать</button></div><div class="grid gap-3"><input v-model="newsForm.title" class="input" placeholder="Заголовок" /><input v-model="newsForm.excerpt" class="input" placeholder="Краткое описание" /><textarea v-model="newsForm.content" class="input" rows="4" placeholder="Текст новости"></textarea><input v-model="newsForm.imageUrl" class="input" placeholder="URL картинки" /><input ref="newsImage" type="file" class="input" /></div><a href="/" class="mt-4 inline-block text-sm font-black text-orange-400">Открыть главный сайт для проверки</a></div>
+          <div class="rounded-[32px] border border-zinc-800 bg-zinc-900 p-5"><h2 class="mb-4 text-xl font-black">Заявки с сайта</h2><div class="max-h-96 space-y-2 overflow-y-auto scrollbar"><div v-for="a in applications" :key="a.id" class="flex items-center justify-between rounded-2xl bg-zinc-950 p-3 text-sm"><span>{{ a.firstName }} {{ a.lastName }} · {{ a.phone }}</span><button @click="deleteApplication(a.id)" class="delete-btn"><i class="fas fa-trash"></i></button></div></div></div>
+        </div>
+      </section>
+    </main>
+  </section>
+</div>
+
+<script>
+const { createApp } = Vue;
+const api = axios.create({ baseURL: '/api' });
+
+createApp({
+  data(){ return {
+    token: localStorage.getItem('token') || '', user: JSON.parse(localStorage.getItem('user') || 'null'),
+    page:'home', error:'', notice:'', loginForm:{email:'student@yakit.ru', password:'123456'},
+    courses:[], dashboard:null, schedule:[], grades:[], activeCourse:null, showModuleForm:false, moduleForm:{title:'',description:''},
+    itemForm:{moduleId:null,type:'assignment',title:'',content:'',url:'',deadline:'',maxScore:5}, testForm:{moduleId:null,title:'',description:'',deadline:'',maxScore:5,attemptLimit:1,durationMinutes:0,showResult:true},
+    selectedAssignment:null, submissionForm:{answer:''}, submissions:[], checkingAssignment:null, gradeForms:{},
+    selectedTest:null, questionForm:{id:null,type:'radio',question:'',imageUrl:'',optionsText:'',correctText:'',points:1}, testAnswers:{}, testAttempts:[], checkingTest:null, testAttemptForms:{}, testDeadlineTs:null, timerNow:Date.now(), timerHandle:null,
+    users:[], students:[], teachers:[], applications:[], enrollments:[], enrollmentPanel:false, enrollUserId:0,
+    userForm:{id:null,fullName:'',email:'',password:'123456',role:'student',groupName:'КИСП-23',specialty:'09.02.07 Информационные системы и программирование'},
+    courseForm:{title:'',category:'',description:'',teacherId:0}, newsForm:{title:'',excerpt:'',content:'',imageUrl:''}
+  }},
+  computed:{
+    nav(){
+      const base=[
+        {id:'home',label:'Главная',icon:'fas fa-th-large'},
+        {id:'courses',label:'Курсы',icon:'fas fa-book-open'},
+        {id:'schedule',label:'Календарь',icon:'fas fa-calendar-alt'},
+        {id:'grades',label:'Оценки',icon:'fas fa-star'}
+      ];
+      if(this.user?.role==='admin') base.push({id:'admin',label:'Администрирование',icon:'fas fa-user-shield'});
+      return base;
+    },
+    timerText(){ if(!this.testDeadlineTs) return ''; const left=Math.max(0, Math.floor((this.testDeadlineTs-this.timerNow)/1000)); const m=String(Math.floor(left/60)).padStart(2,'0'); const sec=String(left%60).padStart(2,'0'); return `${m}:${sec}`; },
+    testExpired(){ return this.testDeadlineTs && this.timerNow>=this.testDeadlineTs; },
+    pageTitle(){ return {home:'Главная',courses:'Курсы',course:'Курс',schedule:'Календарь занятий',grades:'Оценки',submission:'Ответ на задание',check:'Проверка работ',testEditor:'Редактор теста',takeTest:'Прохождение теста',testAttempts:'Проверка тестов',admin:'Администрирование'}[this.page] || 'LMS'; },
+    canManageActiveCourse(){ return this.user && this.activeCourse && (this.user.role==='admin' || (this.user.role==='teacher' && this.activeCourse.teacherId===this.user.id)); }
+  },
+  mounted(){ if(this.token){ this.setAuth(); this.refresh(); } },
+  methods:{
+    roleTitle(r){ return {student:'студент',teacher:'преподаватель',admin:'администратор'}[r] || r; },
+    formatDate(v){ return v ? new Date(v).toLocaleDateString('ru-RU') : ''; },
+    formatTime(v){ return v ? new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : ''; },
+    setAuth(){ api.defaults.headers.common.Authorization = 'Bearer '+this.token; },
+    async login(){ this.error=''; try{ const r=await api.post('/auth/login',this.loginForm); this.token=r.data.token; this.user=r.data.user; localStorage.setItem('token',this.token); localStorage.setItem('user',JSON.stringify(this.user)); this.setAuth(); await this.refresh(); }catch(e){this.error=this.err(e)}},
+    logout(){ localStorage.clear(); location.reload(); }, err(e){ return e.response?.data?.error || e.message || 'Ошибка'; }, ok(t){ this.notice=t; setTimeout(()=>this.notice='',2500); },
+    async refresh(){ this.error=''; try{ await Promise.all([this.loadDashboard(), this.loadCourses(), this.loadSchedule(), this.loadGrades()]); if(this.user.role==='admin') await this.loadAdminData(); }catch(e){this.error=this.err(e)}},
+    openPage(p){ this.page=p; if(p==='home') this.loadDashboard(); if(p==='courses') this.loadCourses(); if(p==='schedule') this.loadSchedule(); if(p==='grades') this.loadGrades(); if(p==='admin') this.loadAdminData(); },
+    async loadCourses(){ const r=await api.get('/courses'); this.courses=r.data; },
+    async loadDashboard(){ const r=await api.get('/lms/dashboard'); this.dashboard=r.data; },
+    async loadSchedule(){ const r=await api.get('/schedule'); this.schedule=r.data; },
+    async loadGrades(){ const r=await api.get('/grades'); this.grades=r.data; },
+    async openScheduleItem(item){ if(item.courseId){ await this.openCourse(item.courseId); } },
+    async openCourse(id){ const r=await api.get('/courses/'+id); this.activeCourse=r.data; this.page='course'; },
+    sortedItems(m){ const raw=(m.items || [...(m.assignments||[]).map(x=>({...x,itemType:'assignment'})),...(m.tests||[]).map(x=>({...x,itemType:'test'}))]); return raw.filter(x=>x.itemType!=='material'); },
+    itemLabel(t){ return {assignment:'Задание',test:'Тест'}[t]||t; }, dateOnly(d){ return d ? String(d).slice(0,10) : ''; },
+    async createModule(){ await api.post(`/courses/${this.activeCourse.id}/modules`, this.moduleForm); this.moduleForm={title:'',description:''}; this.showModuleForm=false; await this.openCourse(this.activeCourse.id); },
+    async deleteModule(id){ if(confirm('Удалить программу?')){ await api.delete('/modules/'+id); await this.openCourse(this.activeCourse.id); }},
+    openItemForm(m){ this.itemForm={moduleId:m.id,type:'assignment',title:'',content:'',url:'',deadline:'',maxScore:5}; },
+    async saveItem(){ const fd=new FormData(); fd.append('title',this.itemForm.title); fd.append('description',this.itemForm.content); fd.append('instructionUrl',this.itemForm.url); fd.append('deadline',this.itemForm.deadline); fd.append('maxScore',this.itemForm.maxScore||5); const file=this.$refs.itemFile?.files?.[0]; if(file) fd.append('file',file); await api.post(`/modules/${this.itemForm.moduleId}/assignments`, fd); this.itemForm={moduleId:null,type:'assignment',title:'',content:'',url:'',deadline:'',maxScore:5}; await this.openCourse(this.activeCourse.id); },
+    async deleteItem(item){ if(!confirm('Удалить элемент?')) return; const path=item.itemType==='assignment'?'/assignments/':'/tests/'; await api.delete(path+item.id); await this.openCourse(this.activeCourse.id); },
+    openSubmission(a){ this.selectedAssignment=a; this.submissionForm.answer=a.answer||''; this.page='submission'; },
+    async saveSubmission(){ const fd=new FormData(); fd.append('answer',this.submissionForm.answer); const files=Array.from(this.$refs.submissionFile?.files || []); files.forEach(file=>fd.append('files',file)); const id=this.selectedAssignment.submissionId; if(id) await api.put('/submissions/'+id, fd); else await api.post(`/assignments/${this.selectedAssignment.id}/submissions`, fd); this.ok('Ответ отправлен на перепроверку'); await this.openCourse(this.activeCourse.id); },
+    async deleteSubmissionFile(file){ if(!this.selectedAssignment.submissionId || !file?.id || !confirm('Удалить прикрепленный файл из ответа?')) return; await api.delete(`/submissions/${this.selectedAssignment.submissionId}/files/${file.id}`); this.ok('Файл удален, ответ отправлен на перепроверку'); await this.openCourse(this.activeCourse.id); },
+    async loadSubmissions(a){ this.checkingAssignment=a; const r=await api.get(`/assignments/${a.id}/submissions`); this.submissions=r.data; this.gradeForms={}; this.submissions.forEach(s=>this.gradeForms[s.id]={grade:s.grade||a.maxScore,comment:s.comment||''}); this.page='check'; },
+    async gradeSubmission(s){ await api.put(`/submissions/${s.id}/grade`, this.gradeForms[s.id]); this.ok('Оценка сохранена'); await this.loadSubmissions(this.checkingAssignment); },
+    closeItemForm(){ this.itemForm={moduleId:null,title:'',content:'',url:'',deadline:'',maxScore:5}; },
+    openTestForm(m){ this.testForm={moduleId:m.id,title:'',description:'',deadline:'',maxScore:5,attemptLimit:1,durationMinutes:0,showResult:true}; },
+    closeTestForm(){ this.testForm={moduleId:null,title:'',description:'',deadline:'',maxScore:5,attemptLimit:1,durationMinutes:0,showResult:true}; },
+    async createTest(){ const r=await api.post(`/modules/${this.testForm.moduleId}/tests`, this.testForm); await this.editTest(r.data.id); },
+    async editTest(id){ const r=await api.get('/tests/'+id); this.selectedTest=r.data; this.resetQuestionForm(); this.page='testEditor'; },
+    async saveTestSettings(){ await api.put('/tests/'+this.selectedTest.id, {title:this.selectedTest.title,description:this.selectedTest.description,attemptLimit:Number(this.selectedTest.attemptLimit)||1,durationMinutes:Number(this.selectedTest.durationMinutes)||0,showResult:!!this.selectedTest.showResult,maxScore:Number(this.selectedTest.maxScore)||5}); this.ok('Настройки теста сохранены'); await this.editTest(this.selectedTest.id); },
+    resetQuestionForm(){ this.questionForm={id:null,type:'radio',question:'',imageUrl:'',optionsText:'',correctText:'',points:1}; },
+    editQuestion(q){ this.questionForm={id:q.id,type:q.type||'radio',question:q.question||'',imageUrl:q.imageUrl||'',optionsText:(q.options||[]).join('\n'),correctText:(q.correctAnswers||[]).join('\n'),points:q.points||1}; },
+    async saveQuestion(){ const opts=(this.questionForm.optionsText||'').split('\n').map(x=>x.trim()).filter(Boolean); const correct=(this.questionForm.correctText||'').split('\n').map(x=>x.trim()).filter(Boolean); const payload={question:this.questionForm.question,type:this.questionForm.type,imageUrl:this.questionForm.imageUrl,options:this.questionForm.type==='text'?[]:opts,correctAnswer:correct[0]||'',correctAnswers:correct,points:Number(this.questionForm.points)||1}; if(this.questionForm.id) await api.put('/questions/'+this.questionForm.id,payload); else await api.post(`/tests/${this.selectedTest.id}/questions`, payload); this.resetQuestionForm(); await this.editTest(this.selectedTest.id); },
+    async deleteQuestion(id){ await api.delete('/questions/'+id); await this.editTest(this.selectedTest.id); },
+    async startTest(id){ const r=await api.get('/tests/'+id); this.selectedTest=r.data; this.testAnswers={}; (this.selectedTest.questions||[]).forEach(q=>{this.testAnswers[q.id]=q.type==='checkbox'?[]:''}); this.testDeadlineTs=this.selectedTest.durationMinutes?Date.now()+this.selectedTest.durationMinutes*60000:null; if(this.timerHandle) clearInterval(this.timerHandle); this.timerNow=Date.now(); this.timerHandle=setInterval(()=>{this.timerNow=Date.now()},1000); this.page='takeTest'; },
+    async submitTest(){ if(this.testExpired){ this.err='Время прохождения теста истекло'; return; } await api.post(`/tests/${this.selectedTest.id}/attempts`, {answers:this.testAnswers}); if(this.timerHandle) clearInterval(this.timerHandle); this.ok('Тест отправлен'); await this.openCourse(this.activeCourse.id); },
+    async loadTestAttempts(t){ this.checkingTest=t; const r=await api.get(`/tests/${t.id}/attempts`); this.testAttempts=r.data; this.testAttemptForms={}; this.testAttempts.forEach(a=>{ const saved=a.manualQuestionGrades||{}; const grades={}; this.autoAttemptRows(a).forEach(row=>{ const key=String(row.id); grades[row.id]=Object.prototype.hasOwnProperty.call(saved,key)?!!saved[key]:!!row.correct; }); this.testAttemptForms[a.id]={score:a.score,maxScore:a.maxScore,comment:a.comment||'',questionGrades:grades}; }); this.page='testAttempts'; },
+    autoAttemptRows(a){ const answers=this.parseAnswers(a.answers); const qs=(a.test&&a.test.questions)||[]; return qs.map(q=>{ const vals=this.answerValues(answers[q.id]); const correct=q.correctAnswers||[]; const type=q.type||'radio'; let earned=0, correctFlag=false, partial=false; if(type==='checkbox'){ const r=this.checkboxScore(vals,correct,q.points||1); earned=r.earned; correctFlag=r.correct; partial=r.partial; } else { correctFlag=vals.length&&correct.map(x=>String(x).trim().toLowerCase()).includes(String(vals[0]).trim().toLowerCase()); earned=correctFlag?(q.points||1):0; } return {id:q.id,type,question:q.question,points:q.points||1,studentText:vals.join(', '),correctText:correct.join(', '),earned,correct:correctFlag,partial,statusText:correctFlag?'Верно':(partial?'Частично':'Неверно')}; }); },
+    attemptQuestionRows(a){ return this.autoAttemptRows(a); },
+    parseAnswers(raw){ try{return typeof raw==='string'?JSON.parse(raw):raw||{}}catch(e){return{}} },
+    answerValues(v){ if(Array.isArray(v)) return v.map(String); if(v===undefined||v===null||v==='') return []; return [String(v)]; },
+    checkboxScore(vals,correct,points){ const s=[...new Set(vals.map(x=>String(x).trim().toLowerCase()).filter(Boolean))]; const c=[...new Set((correct||[]).map(x=>String(x).trim().toLowerCase()).filter(Boolean))]; if(!s.length||!c.length) return {earned:0,correct:false,partial:false}; if(s.some(x=>!c.includes(x))) return {earned:0,correct:false,partial:false}; if(s.length===c.length) return {earned:points,correct:true,partial:false}; return {earned:Math.max(1,Math.floor(points*s.length/c.length)),correct:false,partial:true}; },
+    recalculateAttempt(a){ const rows=this.attemptQuestionRows(a); const form=this.testAttemptForms[a.id]; const total=rows.reduce((sum,r)=>sum+(form.questionGrades[r.id]?(r.points||1):0),0); form.score=total; form.maxScore=rows.reduce((sum,r)=>sum+r.points,0); },
+    async gradeTestAttempt(a){ const form=this.testAttemptForms[a.id]; this.recalculateAttempt(a); await api.put(`/test-attempts/${a.id}/grade`, {comment:form.comment,questionGrades:form.questionGrades}); this.ok('Проверка теста сохранена'); await this.loadTestAttempts(this.checkingTest); },
+    prettyAnswers(raw){ try{ return JSON.stringify(JSON.parse(raw || '{}'), null, 2); }catch(e){ return raw || ''; } },
+    async loadAdminData(){ const [u,t,a]=await Promise.all([api.get('/admin/users'),api.get('/admin/teachers'),api.get('/admin/applications')]); this.users=u.data; this.students=this.users.filter(x=>x.role==='student'); this.teachers=t.data; this.applications=a.data; },
+    editUser(u){ this.userForm={...u,password:''}; },
+    async saveUser(){ if(this.userForm.id) await api.put('/admin/users/'+this.userForm.id,this.userForm); else await api.post('/admin/users',this.userForm); this.userForm={id:null,fullName:'',email:'',password:'123456',role:'student',groupName:'КИСП-23',specialty:''}; await this.loadAdminData(); },
+    async deleteUser(id){ if(confirm('Удалить учетку?')){ await api.delete('/admin/users/'+id); await this.loadAdminData(); }},
+    async saveCourse(){ await api.post('/courses',this.courseForm); this.courseForm={title:'',category:'',description:'',teacherId:0}; await this.loadCourses(); this.ok('Курс создан'); },
+    async loadEnrollments(){ const [e]=await Promise.all([api.get(`/courses/${this.activeCourse.id}/enrollments`), this.user.role==='admin'?this.loadAdminData():Promise.resolve()]); this.enrollments=e.data; this.enrollmentPanel=true; },
+    async addEnrollment(){ if(!this.enrollUserId) return; await api.post(`/courses/${this.activeCourse.id}/enrollments`, {userId:this.enrollUserId,progress:0}); this.enrollUserId=0; await this.loadEnrollments(); },
+    async removeEnrollment(userId){ await api.delete(`/courses/${this.activeCourse.id}/enrollments/${userId}`); await this.loadEnrollments(); },
+    async saveNews(){ const fd=new FormData(); Object.entries(this.newsForm).forEach(([k,v])=>fd.append(k,v||'')); const file=this.$refs.newsImage?.files?.[0]; if(file) fd.append('image',file); await api.post('/admin/news',fd); this.newsForm={title:'',excerpt:'',content:'',imageUrl:''}; this.ok('Новость опубликована'); },
+    async deleteApplication(id){ await api.delete('/admin/applications/'+id); await this.loadAdminData(); }
+  }
+}).mount('#app');
+</script>
+<style>
+.input{border:1px solid #27272a;background:#09090b;border-radius:1rem;padding:.8rem 1rem;outline:none;color:#f4f4f5}.input:focus{border-color:#f97316}.small-btn{border-radius:1rem;background:#27272a;padding:.65rem 1rem;font-size:.8rem;font-weight:900}.small-btn:hover{background:#f97316;color:white}.delete-btn{border-radius:1rem;background:rgba(239,68,68,.1);color:#f87171;padding:.65rem .9rem;font-size:.8rem;font-weight:900}.delete-btn:hover{background:#ef4444;color:white}
+</style>
+</body>
+</html>
